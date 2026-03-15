@@ -24,10 +24,12 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          BASE_URL: /xuanchen_astro
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
-          keep_files: false
+          force_orphan: true
