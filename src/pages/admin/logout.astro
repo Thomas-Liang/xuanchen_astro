@@ -1,0 +1,5 @@
+---
+const { cookies, redirect } = Astro;
+
+cookies.delete('admin_session', { path: '/' });
+return redirect('/admin');

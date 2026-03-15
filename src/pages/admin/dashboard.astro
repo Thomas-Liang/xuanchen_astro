@@ -1,0 +1,104 @@
+---
+import { db } from '../../db';
+import { resources, categories, users } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const { cookies, redirect } = Astro;
+
+const session = cookies.get('admin_session');
+if (!session) {
+  return redirect('/admin');
+}
+
+const userId = parseInt(session.value);
+const user = await db.select().from(users).where(eq(users.id, userId)).get();
+
+if (!user) {
+  cookies.delete('admin_session', { path: '/' });
+  return redirect('/admin');
+}
+
+const resourceCount = await db.select().from(resources);
+const categoryCount = await db.select().from(categories);
+---
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>后台管理 - 控制台</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+    .header {
+      background: white;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 1.25rem; color: #333; }
+    .header a { color: #667eea; text-decoration: none; }
+    .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .stat-card h3 { color: #888; font-size: 0.875rem; margin-bottom: 0.5rem; }
+    .stat-card .value { font-size: 2rem; font-weight: bold; color: #333; }
+    .menu {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .menu a {
+      display: block;
+      padding: 1rem 1.5rem;
+      color: #333;
+      text-decoration: none;
+      border-bottom: 1px solid #eee;
+      transition: background 0.2s;
+    }
+    .menu a:last-child { border-bottom: none; }
+    .menu a:hover { background: #f8f9fa; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>后台管理</h1>
+    <a href="/admin/logout">退出登录</a>
+  </div>
+  <div class="container">
+    <div class="stats">
+      <div class="stat-card">
+        <h3>资源总数</h3>
+        <div class="value">{resourceCount.length}</div>
+      </div>
+      <div class="stat-card">
+        <h3>分类总数</h3>
+        <div class="value">{categoryCount.length}</div>
+      </div>
+    </div>
+    <div class="menu">
+      <a href="/admin/resources">资源管理</a>
+      <a href="/admin/categories">分类管理</a>
+      <a href="/">返回前台</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,197 @@
+---
+import { db } from '../../db';
+import { resources, categories, users } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const { cookies, redirect } = Astro;
+
+const session = cookies.get('admin_session');
+if (!session) {
+  return redirect('/admin');
+}
+
+const userId = parseInt(session.value);
+const user = await db.select().from(users).where(eq(users.id, userId)).get();
+
+if (!user) {
+  cookies.delete('admin_session', { path: '/' });
+  return redirect('/admin');
+}
+
+const allCategories = await db.select().from(categories);
+let resourceList = await db.select().from(resources);
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const action = formData.get('_action');
+  
+  if (action === 'delete') {
+    const id = formData.get('id');
+    await db.delete(resources).where(eq(resources.id, parseInt(id as string)));
+    return redirect('/admin/resources');
+  }
+  
+  if (action === 'create') {
+    const title = formData.get('title') as string;
+    const url = formData.get('url') as string;
+    const description = formData.get('description') as string;
+    const categoryId = formData.get('categoryId') as string;
+    const tags = formData.get('tags') as string;
+    
+    await db.insert(resources).values({
+      title,
+      url,
+      description,
+      categoryId: parseInt(categoryId),
+      tags,
+    });
+    return redirect('/admin/resources');
+  }
+}
+
+resourceList = await db.select().from(resources);
+---
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>资源管理 - 后台管理</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+    .header {
+      background: white;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 1.25rem; color: #333; }
+    .header a { color: #667eea; text-decoration: none; margin-left: 1rem; }
+    .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+    .card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .form-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 200px; margin-bottom: 1rem; }
+    label { display: block; margin-bottom: 0.5rem; color: #555; font-weight: 500; }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-danger { background: #e74c3c; color: white; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f8f9fa; font-weight: 500; }
+    .actions { display: flex; gap: 0.5rem; }
+    .empty { text-align: center; padding: 2rem; color: #888; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>资源管理</h1>
+    <div>
+      <a href="/admin/dashboard">控制台</a>
+      <a href="/admin/logout">退出登录</a>
+    </div>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h3 style="margin-bottom: 1rem;">添加资源</h3>
+      <form method="POST">
+        <input type="hidden" name="_action" value="create">
+        <div class="form-row">
+          <div class="form-group">
+            <label>标题</label>
+            <input type="text" name="title" required>
+          </div>
+          <div class="form-group">
+            <label>链接</label>
+            <input type="url" name="url" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>分类</label>
+            <select name="categoryId" required>
+              {allCategories.map(cat => (
+                <option value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>标签（逗号分隔）</label>
+            <input type="text" name="tags" placeholder="标签1, 标签2">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>描述</label>
+          <textarea name="description" rows="2"></textarea>
+        </div>
+        <button type="submit" class="btn-primary">添加资源</button>
+      </form>
+    </div>
+    
+    <div class="card">
+      <h3 style="margin-bottom: 1rem;">资源列表</h3>
+      {resourceList.length === 0 ? (
+        <p class="empty">暂无资源</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>标题</th>
+              <th>分类</th>
+              <th>标签</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {resourceList.map(resource => {
+              const cat = allCategories.find(c => c.id === resource.categoryId);
+              return (
+                <tr>
+                  <td>{resource.id}</td>
+                  <td>{resource.title}</td>
+                  <td>{cat?.name || '-'}</td>
+                  <td>{resource.tags || '-'}</td>
+                  <td class="actions">
+                    <form method="POST" style="display:inline;">
+                      <input type="hidden" name="_action" value="delete">
+                      <input type="hidden" name="id" value={resource.id}>
+                      <button type="submit" class="btn-danger" onclick="return confirm('确认删除？')">删除</button>
+                    </form>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  </div>
+</body>
+</html>

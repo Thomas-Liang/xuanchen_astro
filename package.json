@@ -12,6 +12,12 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^6.0.4"
+    "astro": "^6.0.4",
+    "better-sqlite3": "^12.8.0",
+    "drizzle-orm": "^0.45.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "drizzle-kit": "^0.31.9"
   }
 }
