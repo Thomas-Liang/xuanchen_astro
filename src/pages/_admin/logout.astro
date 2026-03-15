@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 const { cookies, redirect } = Astro;
 
 cookies.delete('admin_session', { path: '/' });
